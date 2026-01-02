@@ -19,7 +19,7 @@ Welcome to my professional portfolio. I leverage data analysis and economic mode
 *Using Bayesian VAR to forecast CPI trends*
 - **Tools:** R, `bvartools`, `tidyverse`
 - **Key Insight:** Model achieved 94% accuracy on 12-month forecast
-- [View Analysis](./projects/inflation-forecast) | [View Code](./projects/inflation-forecast/code.R)
+- [View Analysis](Trade_Analysis.README.md) | [View Code](./projects/inflation-forecast/code.R)
 
 ### 2. Labor Market Dashboard
 *Interactive visualization of employment trends*
