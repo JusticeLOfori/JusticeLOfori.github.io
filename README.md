@@ -1,4 +1,4 @@
-# Justice Lofori
+# Justice Livingstone Ofori
 ### Economist | Data Analyst
 
 Welcome to my professional portfolio. I leverage data analysis and economic modeling to derive actionable insights and inform policy decisions.
