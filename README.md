@@ -39,7 +39,7 @@ Welcome to my professional portfolio. I leverage data analysis and economic mode
 
 ## 📞 Contact
   - **Email:** [livingwalker4@gmail.com](mailto:livingwalker4@gmail.com) [Primary Contact]
-- **LinkedIn:** [linkedin.com/in/justice-livingstone-ofori]([https://linkedin.com/in/justice-lofori](https://www.linkedin.com/in/justice-livingstone-ofori?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=ios_app))
+- **LinkedIn:** [linkedin.com/in/justice-livingstone-ofori]([https://www.linkedin.com/in/justice-livingstone-ofori?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=ios_app])
  
 
 ---
