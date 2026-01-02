@@ -1,0 +1,345 @@
+### FINAL PROJECT###
+# Clear the memory
+rm(list = ls())
+
+# Load necessary libraries
+library(boot)
+library(DescTools)  # For Clarke test
+library(MASS)       # For multivariate normal sampling
+library(numDeriv)   # For numerical approximation of Hessian
+library(ggplot2)
+
+# Load the dataset
+fs_sim <- read.csv("C:/Users/user/Downloads/fs_sim_ Ofori .csv", 
+                   header = TRUE, sep = ",", stringsAsFactors = FALSE)
+
+# Clean column names
+colnames(fs_sim) <- make.names(gsub("\\s+", "_", colnames(fs_sim)), unique = TRUE)
+
+# Ensure key variables are numeric
+fs_sim$top_1 <- as.numeric(fs_sim$top_1)
+fs_sim$top_2 <- as.numeric(fs_sim$top_2)
+fs_sim$bottom_1 <- as.numeric(fs_sim$bottom_1)
+fs_sim$bottom_2 <- as.numeric(fs_sim$bottom_2)
+
+# Remove rows with missing values
+fs_sim <- na.omit(fs_sim)
+
+# Standardize payoff variables
+fs_sim$top_1 <- scale(fs_sim$top_1)
+fs_sim$top_2 <- scale(fs_sim$top_2)
+fs_sim$bottom_1 <- scale(fs_sim$bottom_1)
+fs_sim$bottom_2 <- scale(fs_sim$bottom_2)
+
+# Convert decision variable to numeric
+fs_sim$d <- as.numeric(as.character(fs_sim$d))
+
+### DEFINE LOG-LIKELIHOOD FUNCTION ###
+LogL_FS <- function(par, data) {
+  alpha <- exp(par[1])  # Transform to ensure positivity
+  beta <- exp(par[2])   # Transform to ensure positivity
+  lambda <- exp(par[3]) # Transform to ensure positivity
+  
+  # Extract variables
+  top_1 <- data$top_1
+  top_2 <- data$top_2
+  bottom_1 <- data$bottom_1
+  bottom_2 <- data$bottom_2
+  d <- data$d
+  
+  # Compute utilities
+  U_top <- pmin(pmax(top_1 - alpha * pmax(0, top_2 - top_1) - beta * pmax(0, top_1 - top_2), -20), 20)
+  U_bottom <- pmin(pmax(bottom_1 - alpha * pmax(0, bottom_2 - bottom_1) - beta * pmax(0, bottom_1 - bottom_2), -20), 20)
+  
+  # Utility difference
+  diff <- U_top - U_bottom
+  
+  # Compute likelihoods using logistic function
+  likelihoods <- d * boot::inv.logit(lambda * diff) + (1 - d) * (1 - boot::inv.logit(lambda * diff))
+  
+  # Penalize invalid likelihoods
+  if (any(is.nan(likelihoods) | likelihoods <= 0)) return(Inf)
+  
+  return(-sum(log(likelihoods)))
+}
+
+### PARAMETER INITIALIZATION AND OPTIMIZATION ###
+# Initial parameter guesses (log-transformed to ensure positivity)
+init_par <- log(c(0.5, 0.5, 1))
+
+# Optimize Fehr-Schmidt Model
+mle_FS <- optim(
+  init_par, LogL_FS, data = fs_sim, method = "L-BFGS-B",
+  lower = log(c(0.01, 0.01, 0.1)),  # Lower bounds for parameters
+  upper = log(c(5, 5, 10)),         # Upper bounds for parameters
+  hessian = TRUE, control = list(maxit = 1000)
+)
+
+# Transform parameters back to original scale
+mle_par <- exp(mle_FS$par)
+
+### REGULARIZED HESSIAN ###
+regularized_hessian <- function(hessian_matrix) {
+  diag(hessian_matrix) <- diag(hessian_matrix) + 1e-6
+  return(hessian_matrix)
+}
+
+hessian_matrix <- regularized_hessian(mle_FS$hessian)
+
+# Compute standard errors
+se_hessian <- tryCatch({
+  sqrt(diag(solve(hessian_matrix)))
+}, error = function(e) {
+  cat("Hessian is singular. Standard errors could not be computed using Hessian.\n")
+  return(rep(NA, length(init_par)))
+})
+
+### BOOTSTRAP STANDARD ERRORS ###
+set.seed(123)
+nboots <- 100  # Reduced to 500 for efficiency
+boot_pars <- matrix(NA, nboots, length(init_par))
+for (i in 1:nboots) {
+  boot_data <- fs_sim[sample(1:nrow(fs_sim), replace = TRUE), ]
+  boot_pars[i, ] <- tryCatch({
+    optim(init_par, LogL_FS, data = boot_data, method = "L-BFGS-B",
+          lower = log(c(0.01, 0.01, 0.1)), upper = log(c(5, 5, 10)),
+          hessian = FALSE)$par
+  }, error = function(e) rep(NA, length(init_par)))
+}
+
+# Compute bootstrap standard errors
+boot_estimates <- exp(boot_pars[complete.cases(boot_pars), ])
+boot_se <- apply(boot_estimates, 2, sd)
+
+# Final standard errors
+final_se <- if (any(is.na(se_hessian))) boot_se else se_hessian
+
+### RESULTS ###
+results_hypothesis1 <- data.frame(
+  Parameter = c("alpha", "beta", "lambda"),
+  Estimate = mle_par,
+  SE = final_se
+)
+
+# Display results
+print(results_hypothesis1)
+
+# Prepare bootstrap data
+bootstrap_data <- data.frame(
+  Alpha = boot_estimates[, 1],
+  Beta = boot_estimates[, 2],
+  Lambda = boot_estimates[, 3]
+)
+
+# Plot density
+ggplot(bootstrap_data, aes(x = Alpha)) +
+  geom_density(fill = "lightblue", alpha = 0.7) +
+  labs(title = "Bootstrap Density for Alpha (Hypothesis 1)",
+       x = "Alpha (α)", y = "Density") +
+  theme_minimal()
+
+### HYPOTHESIS 2: GENDER-SPECIFIC MODELS ###
+# Subset data by gender
+fs_male <- subset(fs_sim, male == 1)
+fs_female <- subset(fs_sim, male == 0)
+
+# Define gender-specific log-likelihood
+LogL_FS_gender <- function(par, data) {
+  LogL_FS(par, data)  # Use the previously defined Fehr-Schmidt likelihood
+}
+
+# Parameter initialization and bounds
+init_par <- log(c(0.5, 0.5, 1))  # Log-transformed initial values
+lower_bounds <- log(c(0.01, 0.01, 0.1))  # Lower bounds for parameters
+upper_bounds <- log(c(5, 5, 10))  # Upper bounds for parameters
+
+# Optimize Fehr-Schmidt Model for Males
+mle_male <- optim(
+  init_par, LogL_FS_gender, data = fs_male, method = "L-BFGS-B",
+  lower = lower_bounds, upper = upper_bounds, hessian = TRUE, control = list(maxit = 1000)
+)
+
+# Optimize Fehr-Schmidt Model for Females
+mle_female <- optim(
+  init_par, LogL_FS_gender, data = fs_female, method = "L-BFGS-B",
+  lower = lower_bounds, upper = upper_bounds, hessian = TRUE, control = list(maxit = 1000)
+)
+
+# Transform parameters back to original scale
+mle_male_par <- exp(mle_male$par)
+mle_female_par <- exp(mle_female$par)
+
+### REGULARIZED HESSIAN ###
+regularized_hessian <- function(hessian_matrix) {
+  diag(hessian_matrix) <- diag(hessian_matrix) + 1e-6
+  return(hessian_matrix)
+}
+
+# Regularize Hessians
+male_hessian <- regularized_hessian(mle_male$hessian)
+female_hessian <- regularized_hessian(mle_female$hessian)
+
+# Compute Standard Errors
+se_male <- tryCatch({
+  sqrt(diag(solve(male_hessian)))
+}, error = function(e) rep(NA, length(init_par)))
+
+se_female <- tryCatch({
+  sqrt(diag(solve(female_hessian)))
+}, error = function(e) rep(NA, length(init_par)))
+
+### BOOTSTRAP STANDARD ERRORS ###
+bootstrap_SE <- function(data, init_par, nboots) {
+  boot_res <- matrix(NA, nboots, length(init_par))
+  for (i in 1:nboots) {
+    boot_sample <- data[sample(1:nrow(data), replace = TRUE), ]
+    boot_res[i, ] <- tryCatch({
+      optim(
+        init_par, LogL_FS_gender, data = boot_sample, method = "L-BFGS-B",
+        lower = lower_bounds, upper = upper_bounds, hessian = FALSE
+      )$par
+    }, error = function(e) rep(NA, length(init_par)))
+  }
+  valid_boot_res <- boot_res[complete.cases(boot_res), ]
+  exp(apply(valid_boot_res, 2, sd))  # Transform back to original scale
+}
+
+set.seed(123)
+nboots <- 100  # Number of bootstrap samples
+
+# Bootstrap SEs for Males
+boot_se_male <- bootstrap_SE(fs_male, init_par, nboots)
+
+# Bootstrap SEs for Females
+boot_se_female <- bootstrap_SE(fs_female, init_par, nboots)
+
+# Final standard errors
+final_se_male <- if (any(is.na(se_male))) boot_se_male else se_male
+final_se_female <- if (any(is.na(se_female))) boot_se_female else se_female
+
+### RESULTS ###
+results_hypothesis2 <- data.frame(
+  Group = c("Male", "Female"),
+  Alpha = c(mle_male_par[1], mle_female_par[1]),
+  Beta = c(mle_male_par[2], mle_female_par[2]),
+  Lambda = c(mle_male_par[3], mle_female_par[3]),
+  SE_Alpha = c(final_se_male[1], final_se_female[1]),
+  SE_Beta = c(final_se_male[2], final_se_female[2]),
+  SE_Lambda = c(final_se_male[3], final_se_female[3])
+)
+
+### DISPLAY RESULTS ###
+print(results_hypothesis2)
+
+# Combine bootstrap data
+bootstrap_gender <- data.frame(
+  Alpha = c(boot_se_male[1], boot_se_female[1]),
+  Gender = rep(c("Male", "Female"), each = length(boot_se_male))
+)
+
+# Violin plot
+ggplot(bootstrap_gender, aes(x = Gender, y = Alpha, fill = Gender)) +
+  geom_violin(alpha = 0.7) +
+  labs(title = "Bootstrap Estimates of Alpha by Gender (Hypothesis 2)",
+       x = "Gender", y = "Alpha (α)") +
+  theme_minimal()
+
+
+##HYPOTHESIS 3####
+# Define the log-likelihood function for Model A (Fairness Preferences)
+LogL_Fairness <- function(par, data) {
+  d <- data$d                    # Decision variable (1 = bottom chosen, 0 = top chosen)
+  bottom_1 <- data$bottom_1      # Payoff to self for bottom allocation
+  bottom_2 <- data$bottom_2      # Payoff to other for bottom allocation
+  top_1 <- data$top_1            # Payoff to self for top allocation
+  top_2 <- data$top_2            # Payoff to other for top allocation
+  
+  alpha <- par[1]  # Sensitivity to unfairness
+  
+  # Utility calculations
+  utility_top <- top_1 - alpha * abs(top_1 - top_2)
+  utility_bottom <- bottom_1 - alpha * abs(bottom_1 - bottom_2)
+  
+  # Utility difference (bottom - top)
+  diff_utility <- utility_bottom - utility_top
+  
+  # Log-likelihood
+  likelihoods <- d * (1 / (1 + exp(-diff_utility))) + (1 - d) * (1 / (1 + exp(diff_utility)))
+  return(sum(log(likelihoods)))
+}
+
+# Define the log-likelihood function for Model B (Negative Reciprocity)
+LogL_Reciprocity <- function(par, data) {
+  d <- data$d                    # Decision variable (1 = bottom chosen, 0 = top chosen)
+  bottom_1 <- data$bottom_1      # Payoff to self for bottom allocation
+  bottom_2 <- data$bottom_2      # Payoff to other for bottom allocation
+  top_1 <- data$top_1            # Payoff to self for top allocation
+  top_2 <- data$top_2            # Payoff to other for top allocation
+  
+  rho <- par[1]  # Punishment for perceived unfairness
+  
+  # Utility calculations
+  utility_top <- top_1 - rho * max(0, top_1 - top_2)
+  utility_bottom <- bottom_1 - rho * max(0, bottom_1 - bottom_2)
+  
+  # Utility difference (bottom - top)
+  diff_utility <- utility_bottom - utility_top
+  
+  # Log-likelihood
+  likelihoods <- d * (1 / (1 + exp(-diff_utility))) + (1 - d) * (1 / (1 + exp(diff_utility)))
+  return(sum(log(likelihoods)))
+}
+
+# Optimize both models and compute Hessian matrices
+initial_params_A <- c(0.5)  # Initial guess for alpha in Model A (Fairness Preferences)
+optim_Fairness <- optim(initial_params_A, LogL_Fairness, data = fs_sim, control = list(fnscale = -1), hessian = TRUE)
+hessian_Fairness <- optim_Fairness$hessian  # Hessian for Model A
+vcov_Fairness <- solve(hessian_Fairness + diag(1e-6, nrow(hessian_Fairness)))  # Regularized Variance-Covariance Matrix for Model A
+
+initial_params_B <- c(0.5)  # Initial guess for rho in Model B (Negative Reciprocity)
+optim_Reciprocity <- optim(initial_params_B, LogL_Reciprocity, data = fs_sim, control = list(fnscale = -1), hessian = TRUE)
+hessian_Reciprocity <- optim_Reciprocity$hessian  # Hessian for Model B
+
+# Regularize Hessian Matrix if Singular
+if (det(hessian_Reciprocity) == 0) {
+  hessian_Reciprocity <- hessian_Reciprocity + diag(1e-6, nrow(hessian_Reciprocity))
+}
+vcov_Reciprocity <- solve(hessian_Reciprocity)
+
+# Bootstrapping for parameter estimates
+bootstrap_fairness <- boot(data = fs_sim, statistic = function(data, indices) {
+  data_boot <- data[indices, ]
+  optim(initial_params_A, LogL_Fairness, data = data_boot, control = list(fnscale = -1))$par
+}, R = 100)
+
+bootstrap_reciprocity <- boot(data = fs_sim, statistic = function(data, indices) {
+  data_boot <- data[indices, ]
+  optim(initial_params_B, LogL_Reciprocity, data = data_boot, control = list(fnscale = -1))$par
+}, R = 100)
+
+# Calculate individual likelihoods for each observation for Model A and Model B
+fs_sim$logL_A <- mapply(function(row) LogL_Fairness(optim_Fairness$par, row), split(fs_sim, seq(nrow(fs_sim))))
+fs_sim$logL_B <- mapply(function(row) LogL_Reciprocity(optim_Reciprocity$par, row), split(fs_sim, seq(nrow(fs_sim))))
+
+# Vuong Test
+logL_ratio <- fs_sim$logL_A - fs_sim$logL_B
+vuong_stat <- mean(logL_ratio) / sd(logL_ratio)
+p_value_vuong <- 2 * (1 - pnorm(abs(vuong_stat)))  # Two-tailed test
+
+# Clarke Test
+p_value_clarke <- SignTest(fs_sim$logL_A, fs_sim$logL_B)$p.value
+
+# Display results
+cat("=== Model Comparison Results ===\n")
+cat("Model A (Fairness Preferences): Log-Likelihood =", optim_Fairness$value, "\n")
+cat("Model B (Negative Reciprocity): Log-Likelihood =", optim_Reciprocity$value, "\n")
+cat("\nVuong Test:\n")
+cat("  Statistic =", vuong_stat, "\n")
+cat("  P-value =", p_value_vuong, "\n")
+cat("\nClarke Test:\n")
+cat("  P-value =", p_value_clarke, "\n")
+
+cat("\nBootstrap Results:\n")
+cat("Model A (Fairness Preferences): Parameter =", mean(bootstrap_fairness$t), ", SE =", sd(bootstrap_fairness$t), "\n")
+cat("Model B (Negative Reciprocity): Parameter =", mean(bootstrap_reciprocity$t), ", SE =", sd(bootstrap_reciprocity$t), "\n")
+
