@@ -18,13 +18,13 @@ Welcome to my professional portfolio. I leverage data analysis and economic mode
 ### 1. Trade Analysis
 - **Tools:** R`
 - **Key Insight:** Bitcoin exhibits stronger and more statistically significant hourly trading patterns than Ethereum, with 9 vs 7 significant hours weekly where returns consistently deviate from randomness. These predictable intraday patterns suggest exploitable market inefficiencies, particularly in Bitcoin's more volatile but pattern-rich market structure.
-- [View Analysis](Trade_Analysis.README.md) | [View Code](./projects/inflation-forecast/code.R)
+- [View Analysis](Trade_Analysis.README.md) | [View Code](Trade_Analysis.Rscript)
 
-### 2. Labor Market Dashboard
-*Interactive visualization of employment trends*
-- **Tools:** Python, Streamlit, pandas
-- **Features:** Real-time filtering by sector and demographics
-- [Live Demo](https://...) | [View Code](./projects/labor-dashboard)
+### 2. Experimetrics
+*This experimetrics analysis employs Maximum Likelihood Estimation of Fehr-Schmidt fairness models to reveal that males exhibit significantly stronger aversion to disadvantageous inequality (α=2.94 vs 1.68) in Ultimatum Game bargaining, with negative reciprocity motivations outperforming pure fairness concerns in explaining proposer behavior.*
+- **Tools:** R
+- **Key Insights:** 
+- [View Project](https://...) | [View Code](./projects/labor-dashboard)
 
 *(More projects coming soon!)*
 
