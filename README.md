@@ -16,9 +16,8 @@ Welcome to my professional portfolio. I leverage data analysis and economic mode
 ## 🗂️ Featured Projects
 
 ### 1. Trade Analysis
-*Using Bayesian VAR to forecast CPI trends*
-- **Tools:** R, `bvartools`, `tidyverse`
-- **Key Insight:** Model achieved 94% accuracy on 12-month forecast
+- **Tools:** R`
+- **Key Insight:** Bitcoin exhibits stronger and more statistically significant hourly trading patterns than Ethereum, with 9 vs 7 significant hours weekly where returns consistently deviate from randomness. These predictable intraday patterns suggest exploitable market inefficiencies, particularly in Bitcoin's more volatile but pattern-rich market structure.
 - [View Analysis](Trade_Analysis.README.md) | [View Code](./projects/inflation-forecast/code.R)
 
 ### 2. Labor Market Dashboard
