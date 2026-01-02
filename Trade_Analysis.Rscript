@@ -1,0 +1,453 @@
+---
+title: "Trading Opportunities in Cryptocurrency Markets: An Hourly Analysis of Bitcoin and Ethereum"
+author: "Justice Livingstone Ofori"
+output:
+  pdf_document: 
+    df_print: kable
+    latex_engine: xelatex
+---
+
+```{css, echo = FALSE}
+
+th, td {
+    padding-left: 1em;
+    text-align: left;
+}
+```
+
+
+```{r, include=FALSE}
+# Libraries
+library(data.table)
+library(lubridate)
+library(tidyr)
+library(sn)
+library(PerformanceAnalytics)
+library(car)
+library(tseries)
+library(forecast)
+library(quantmod)
+library(zoo)
+library(lattice)
+library(here)
+library(dplyr)
+```
+
+
+# Introduction:
+
+Bitcoin and Ethereum are two of the most prominent cryptocurrencies in the digital asset landscape. Bitcoin, introduced in 2009 by an anonymous entity known as Satoshi Nakamoto, is often referred to as digital gold and is widely recognized as the first decentralized cryptocurrency. It operates on a peer-to-peer network, allowing for secure and anonymous transactions without the need for intermediaries like banks. 
+
+Ethereum, launched in 2015 by Vitalik Buterin and others, expanded the capabilities of blockchain technology beyond simple transactions. It introduced smart contracts, which are self-executing contracts with the terms of the agreement directly written into code. Ethereum's platform has enabled the development of decentralized applications (DApps) and decentralized finance (DeFi) protocols, making it a versatile ecosystem for developers and users alike.
+
+Analysing hourly price movements in cryptocurrency markets provides valuable insights into short-term market dynamics and trading opportunities. Unlike traditional financial markets, cryptocurrency markets operate 24/7, with price fluctuations occurring at a rapid pace. Hourly analysis allows traders and investors to identify patterns, trends, and potential price reversals that may not be as evident in longer time frames. 
+
+By examining hourly price data, market participants can make more informed decisions regarding entry and exit points, risk management strategies, and timing of trades. Additionally, hourly analysis enables the detection of intraday trading opportunities, which can be particularly lucrative in volatile cryptocurrency markets. The primary objective of this work is to investigate trading opportunities in cryptocurrency markets through an hourly analysis of Bitcoin and Ethereum price movements. In this study, I collected hourly price data for both Bitcoin and Ethereum from Crypto-Historical-Prices. For Ethereum, I obtained the data from the "ETH_1H.csv" file, while for Bitcoin, the data was sourced from the "coinbaseUSD_1-min_data.csv" file. The Ethereum data includes timestamps and closing prices at hourly intervals, while the Bitcoin data was cleaned and aggregated to hourly intervals to match the Ethereum data.
+
+
+```{r wrangling, echo=FALSE}
+## Data Wrangling
+
+# Get data
+df = fread(file.path(here(), "ETH_1H.csv"), select = c("Date", "Close"))
+df1 = fread(file.path(here(), "coinbaseUSD_1-min_data.csv"), select = c("Date", "Close"))
+
+# Clean the bitcoin as it is in minutes
+setkey(df1, Date)
+df1[, `:=`(Hour = floor_date(Date, unit = "hour"))]
+hourly_data = df1[, .(price = mean(Close)), by = .(Hour)]
+
+# Convert to XTS for nice plots
+ETHUSD = xts(df$Close, order.by = df$Date)
+names(ETHUSD) = c("price")
+
+bitcoin = xts(hourly_data$price, order.by = hourly_data$Hour)
+names(bitcoin) = c("price")
+
+rm(df, df1, hourly_data)
+
+```
+
+## Data Description
+```{r desc, results='asis', message=FALSE, comment="", echo=FALSE}
+library(stargazer)
+
+# create combined data series
+eth.bit =  cbind(ETHUSD, bitcoin)
+names(eth.bit) = c("close_eth", "close_bit")
+
+eth.bit = as.data.table(eth.bit)
+
+stargazer::stargazer(eth.bit,  style = "aer", title="Descriptive statistics", flip = TRUE, header = FALSE)
+
+```
+
+Table 1 presents the summary statistics for the ethereum and bitcoin data. The ethereum data span from 2016−05−09 13:00:00 to 2020−04−16 00:00:00. Over the time period, the highest price for the ethereum data was 1,417.540. In similar vain, the bitcoin data covered a relatively longer time span from 2014−12−01 05:00:00 to 2023−05−28 19:00:00. The highest recorded price was 8,580.050.
+
+## Data Visualization
+
+The time series line plot illustrates the hourly trend of Ethereum and Bitcoin from the periods May 2016 to April 2020 and December 2014 to May 2023 respectively. The plot shows a continuous line connecting data points corresponding to the hourly data of these two cryptocurrencies. The line exhibits seasonal fluctuations with their respective prices. Ethereum prices peaked during 2018 and dropped after 2019. Additionally, a gradual quite stable trend is observed after 2019. On the other hand, Bitcoin prices was quite stable until after 2019.
+
+```{r plot1, results='asis', message=FALSE, comment="", echo=FALSE}
+
+# Plot the data
+par(mfrow= c(2,1))
+plot(ETHUSD, type = "l", main = "Hourly price of ethereum")
+plot(bitcoin, type = "l", main = "Hourly price of bitcoin")
+par(mfrow= c(1,1))
+
+```
+
+
+## Log Returns
+
+After obtaining the hourly price data for Ethereum and Bitcoin, I computed log-returns to quantify the percentage change in price over time. Log-returns were calculated using the simple method, which involves taking the natural logarithm of the ratio of the current price to the previous price. This method provides a more accurate representation of the percentage change in price, especially for volatile assets like cryptocurrencies.
+
+```{r, echo=FALSE}
+# calculate returns
+ETHUSD.ret = CalculateReturns(ETHUSD, method="simple")
+names(ETHUSD.ret) = c("returns")
+
+bitcoin.ret = CalculateReturns(bitcoin, method="simple")
+names(bitcoin.ret) = c("returns")
+
+
+# remove first NA observation
+ETHUSD.ret = ETHUSD.ret[-1,]
+bitcoin.ret = bitcoin.ret[-1,]
+
+
+# Convert to log returns
+ETHUSD.z = log(1 + ETHUSD.ret)
+names(ETHUSD.z) = c("log_returns")
+
+bitcoin.z = log(1 + bitcoin.ret)
+names(bitcoin.z) = c("log_returns")
+```
+
+
+```{r plot2, results='asis', message=FALSE, comment="", echo=FALSE}
+
+# Plot log returns
+par(mfrow= c(2,1))
+chart.TimeSeries(ETHUSD.z, colorset="chartreuse2", lwd=1, main = "log-returns of Ethereum")
+chart.TimeSeries(bitcoin.z, colorset="chartreuse2", lwd=1, main = "log-returns of Bitcoin")
+par(mfrow= c(1,1))
+
+```
+
+To visually analyse the hourly price movements of Ethereum and Bitcoin, line charts were further created using the calculated log-returns. These line charts provide a clear representation of how the prices of Ethereum and Bitcoin fluctuate over time on an hourly basis. The Ethereum line chart displays the hourly price movements of Ethereum, while the Bitcoin line chart depicts the hourly price movements of Bitcoin.
+
+## Hourly Trends Analysis
+
+To analyse the hourly trends of Bitcoin and Ethereum, the mean log returns and proportion of positive returns for each hour of the week over the past 365 days were computed. The results are shown separately in table 2 and 3 for ethereum and bitcoin and they provide insights into the average performance and prevalence of positive returns during different hours of the week.
+
+```{r, echo=FALSE}
+# prepping  ethereum data
+end_date = last(index(ETHUSD.z))
+start_date = last(index(ETHUSD.z)) - (86400*365) # 86400 seconds a day.
+
+#keeping only the last 365 days
+ETHUSD.z.20 = window(ETHUSD.z, start=start_date, end=end_date)
+
+# To datatable for convenience 
+ETHUSD.z.20.table = as.data.table(ETHUSD.z.20)
+
+# Generating an ID "hour_of_week"
+ETHUSD.z.20.table[,hour_of_week :=(wday(index, week_start = 1)-1)*24+hour(index)]
+
+
+# prepping  bitcoin data
+end_date = last(index(bitcoin.z))
+start_date = last(index(bitcoin.z)) - (86400*365) # 86400 seconds a day.
+ 
+#keeping only the last 365 days
+bitcoin.z.23 = window(bitcoin.z, start=start_date, end=end_date)
+ 
+# To datatable for convenience 
+bitcoin.z.23.table = as.data.table(bitcoin.z.23)
+
+# Generating an ID "hour_of_week" 
+bitcoin.z.23.table[,hour_of_week :=(wday(index, week_start = 1)-1)*24+hour(index)]
+
+```
+
+
+```{r, include=FALSE}
+
+## Creating a customized function for q1 and q2
+
+# Define a function to perform both hypothesis tests for each 'hour_week' group
+perform_tests = function(df) {
+  
+  # Calculate the mean log returns and the count of positive log returns
+  mean_log_returns = mean(df$log_returns, na.rm = TRUE)
+  positive_count = sum(df$log_returns > 0, na.rm = TRUE)
+  
+  # Perform a one-sample t-test on the log-returns
+  t_test = t.test(df$log_returns, mu = 0, alternative = 'greater')
+  
+  # Perform a binomial test on the proportion of positive returns
+  n_total = length(na.omit(df$log_returns))
+  binom_test = binom.test(positive_count, n_total, p = 0.5, alternative = 'greater', conf.level = 0.95)
+  
+  # Return a data frame with the p-values of the tests
+  data.frame(
+    hour_of_week = df$hour_of_week[1], 
+    mean_log_returns = mean_log_returns,
+     t_test_p_value = t_test$p.value,
+    positive_count = positive_count,
+    n_total = n_total,
+    prop_pos_log_returns = positive_count/n_total,
+    binom_test_p_value = binom_test$p.value
+  )
+}
+```
+
+
+```{r mean_log_returns, results='asis', message=FALSE, comment="", echo=FALSE}
+
+test_results_eth = ETHUSD.z.20.table %>%
+  group_by(hour_of_week) %>%
+  do(perform_tests(.))
+
+# Keep required columns
+test_results_eth = subset(test_results_eth, select = -positive_count)
+test_results_eth = subset(test_results_eth, select = -n_total)
+
+test_results_bit = bitcoin.z.23.table %>%
+  group_by(hour_of_week) %>%
+  do(perform_tests(.))
+
+# Keep required columns
+test_results_bit = subset(test_results_bit, select = -positive_count)
+test_results_bit = subset(test_results_bit, select = -n_total)
+
+knitr::kable(head(test_results_eth, n = 10L), caption = "Mean log returns and proportion of positive returns for ethereum") 
+
+knitr::kable(head(test_results_bit, n = 10L),  caption = "Mean log returns and proportion of positive returns for bitcoin")
+```
+
+The tables 2 and 3 shows the mean log returns for each asset and the proportion of positive returns for each hour of the week including their respective p-values. Analysis of these trends help identify potential trading opportunities during certain hours of the week. A one sample t-test was conducted to test the significance of the mean log return for each hour of the week over the last 365days. Also, a binomial test was employed to test the significance of the proportion of positive log returns for each hour of the week. It is worth to note that the first 10hours in the week are presented in the tables for brevity. A general pattern is shown in the diagrams below. 
+
+```{r, include=FALSE}
+
+library(ggplot2)
+library(ggpubr)
+theme_set(theme_pubr())
+
+plot_eth = ggplot(test_results_eth, aes(x = hour_of_week, y = mean_log_returns)) +
+  geom_line() +
+  labs(title = "Mean Log-Return by Hour of Week of ethereum",
+       x = "Hour of Week",
+       y = "Mean log returns") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+plot_bit = ggplot(test_results_bit, aes(x = hour_of_week, y = mean_log_returns)) +
+  geom_line() +
+  labs(title = "Mean Log-Return by Hour of Week of bitcoin",
+       x = "Hour of Week",
+       y = "Mean log returns") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+# Displaying results
+
+p_value_plot_eth = ggplot(test_results_eth, aes(x = hour_of_week, y = t_test_p_value)) +
+  geom_line(color = "chartreuse2", size = 0.35) + geom_point(color = "black", size = 0.5) +
+  geom_hline(yintercept = 0.05, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = 0.10, linetype = "dashed", color = "red") +
+  labs(title = "P-Values for Mean Log-Return by Hour of Week of ethereum",
+       x = "Hour of Week",
+       y = "P-Value") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+
+p_value_plot_bit = ggplot(test_results_bit, aes(x = hour_of_week, y = t_test_p_value)) +
+  geom_line(color = "chartreuse2", size = 0.35) + geom_point(color = "black", size = 0.5) +
+  geom_hline(yintercept = 0.05, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = 0.10, linetype = "dashed", color = "red") +
+  labs(title = "P-values for mean log-return by hour of week of bitcoin",
+       x = "Hour of Week",
+       y = "P-Value") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+ggarrange(plot_eth, p_value_plot_eth, ncol = 1, nrow = 2)
+ggarrange(plot_bit, p_value_plot_bit, ncol = 1, nrow = 2)
+
+```
+
+```{r plot3, results='asis', message=FALSE, comment="", echo=FALSE, warning=FALSE}
+ggarrange(plot_eth, p_value_plot_eth, ncol = 1, nrow = 2)
+```
+ 
+The diagram above shows the mean log returns and the associated p-values from the t-test analysis for Ethereum data. Here, I showed significance levels of 5% and 10% levels. This is shown in the dash red lines in the figure. From the figure, it can be observed that about 7 mean log returns for each hour of the week is significant at the 5% level. Similar analysis was performed for Bitcoin data as well. The diagram below depicts this. From the diagram, it can be observed that about 9 mean log returns for bitcoin for each hour of the week is statistically different from 0 at the 5% level. 
+
+```{r plot3.1, results='asis', message=FALSE, comment="", echo=FALSE, warning=FALSE}
+ggarrange(plot_bit, p_value_plot_bit, ncol = 1, nrow = 2)
+```
+
+
+## Rolling Window Analysis 
+
+At this stage of the analysis, I utilized rolling windows of 1 year wealth of hourly data (8760 hours) to compute rolling means and proportions of positive returns for Bitcoin and Ethereum. Here, rolling window analysis is employed to assess the long and short term trends of mean log-returns and proportions of positive returns for Bitcoin and Ethereum prices over successive one-year windows for the entire sample.
+
+By systematically computing these metrics within rolling windows, the analysis provides insights into the temporal dynamics of cryptocurrency price movements, allowing for the identification of trends, patterns, and potential trading opportunities. The results are depicted in the figures and tables below below.
+
+```{r, echo=FALSE}
+#prepping the data
+ETHUSD.z = as.data.table(ETHUSD.z)
+bitcoin.z = as.data.table(bitcoin.z)
+
+ETHUSD.z[,hour_of_week :=(wday(index, week_start = 1)-1)*24+hour(index)]
+bitcoin.z[,hour_of_week :=(wday(index, week_start = 1)-1)*24+hour(index)]
+
+# Calculating rolling returns
+
+# Calculate the mean log returns and the count of positive log returns
+ETHUSD.z[, roll_mean_log_returns := frollmean(log_returns, n = 8760, fill = NA, align = 'right')]
+bitcoin.z[, roll_mean_log_returns := frollmean(log_returns, n = 8760, fill = NA, align = 'right')]
+
+```
+
+
+```{r, include=FALSE}
+
+## Creating a customized function for q3
+
+perform_roll_tests = function(df) {
+  
+  # Calculate the mean log returns and the count of positive log returns
+  roll_mean_log_returns = mean(df$roll_mean_log_returns, na.rm = TRUE)
+  roll_positive_count = sum(df$roll_mean_log_returns > 0, na.rm = TRUE)
+  
+  # Perform a one-sample t-test on the log-returns
+  t_test = t.test(df$roll_mean_log_returns, mu = 0, alternative = 'greater')
+  
+  # Perform a binomial test on the proportion of positive returns
+  n_total = length(na.omit(df$roll_mean_log_returns))
+  binom_test = binom.test(roll_positive_count, n_total, p = 0.5, alternative = 'greater')
+  
+  # Return a data frame with the p-values of the tests
+  data.frame(
+    hour_of_week = df$hour_of_week[1], 
+    roll_mean_log_returns = roll_mean_log_returns,
+    t_test_p_value = t_test$p.value,
+    roll_positive_count = roll_positive_count,
+    n_total = n_total,
+    prop_pos_log_returns = roll_mean_log_returns/n_total,
+    binom_test_p_value = binom_test$p.value
+  )
+}
+
+
+```
+
+
+```{r roll_mean_log_returns, results='asis', message=FALSE, comment="", echo=FALSE}
+
+roll_test_results_eth = ETHUSD.z %>%
+  group_by(hour_of_week) %>%
+  do(perform_roll_tests(.))
+
+# Keep required columns
+roll_test_results_eth = subset(roll_test_results_eth, select = -roll_positive_count)
+roll_test_results_eth = subset(roll_test_results_eth, select = -n_total)
+
+roll_test_results_bit = bitcoin.z %>%
+  group_by(hour_of_week) %>%
+  do(perform_roll_tests(.))
+
+# Keep required columns
+roll_test_results_bit = subset(roll_test_results_bit, select = -roll_positive_count)
+roll_test_results_bit = subset(roll_test_results_bit, select = -n_total)
+
+knitr::kable(head(roll_test_results_eth, n = 10L), caption = "Rolling means of the log-returns
+for each hour and proportion of positive returns - Ethereum") 
+
+knitr::kable(head(roll_test_results_bit, n = 10L), caption = "Rolling means of the log-returns
+for each hour and proportion of positive returns - Bitcoin")
+
+```
+
+Table 4 and table 5 also show the rolling means of log-returns for Bitcoin and Ethereum over time including their respective test statistics. For Ethereum, using t-test, all of the rolling means were statistically significant at both 1% and 5% level but none of the rolling mean for proportion of positive returns is statistically significant. For Bitcoin, rolling means and proportion of positive rolling mean for every hour are all significant at 1% level. 
+
+
+
+```{r plot4, results='asis', message=FALSE, comment="", echo=FALSE, warning=FALSE}
+
+plot_eth = ggplot(roll_test_results_eth, aes(x = hour_of_week, y = roll_mean_log_returns)) +
+  geom_line() +
+  labs(title = "Mean Log-Return by Hour of Week of ethereum",
+       x = "Hour of Week",
+       y = "Mean log returns") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+plot_bit = ggplot(roll_test_results_bit, aes(x = hour_of_week, y = roll_mean_log_returns)) +
+  geom_line() +
+  labs(title = "Mean Log-Return by Hour of Week of bitcoin",
+       x = "Hour of Week",
+       y = "Mean log returns") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+ggarrange(plot_eth, plot_bit, ncol = 1, nrow = 2)
+
+```
+
+The plot above shows the rolling mean of log returns for each hour of the week for the entire time span. I observe short term fluctuations in the rolling mean of log returns for ethereum and bitcoin. The t-test showed that for the entire time span, the rolling mean for each hour of the week is statistically different from 0 for bitcoin and ethereum. For the proportion of positive rolling means for each hour of the week, the binomial test shows that they are all greater than 50%. But none of the positive rolling log means for each hour of the week in the ethereum data is greater than 50%. 
+
+
+## Discussion
+
+The hourly analysis of Bitcoin and Ethereum price movements yielded several key insights. Firstly, it was observed that both cryptocurrencies exhibit distinct hourly trends over the past 365 days. Ethereum's price movements showed more stability compared to Bitcoin, particularly after 2019. This stability in Ethereum's price trend could be attributed to its versatile ecosystem, including the development of decentralized applications and decentralized finance protocols, which have contributed to its fundamental strength. On the other hand, Bitcoin's price exhibited more volatility, although it experienced periods of relative stability after 2019. This volatility in Bitcoin's price could be influenced by various factors such as market sentiment, macroeconomic events, and institutional adoption.
+
+Furthermore, statistical tests conducted on the mean log returns and proportions of positive returns provided additional insights. While only a few hourly periods exhibited statistically significant results at the 1% level of significance, a larger number of hourly periods showed significance at the 10% level. This suggests that while some hourly trends may be statistically significant, traders and investors should exercise caution and consider multiple factors before making trading decisions based solely on hourly analysis.
+
+The findings of this study have several implications for traders and investors in cryptocurrency markets. Firstly, the identification of statistically significant hourly trends can inform trading strategies, allowing market participants to capitalize on short-term price movements. However, it is essential for traders to integrate hourly analysis with other forms of technical and fundamental analysis to mitigate risks and enhance decision-making.
+
+Additionally, the stability observed in Ethereum's price trend highlights its potential as a long-term investment option, especially for investors seeking exposure to decentralized applications and the broader ecosystem of decentralized finance. Conversely, Bitcoin's volatility underscores the importance of risk management strategies and the need for a diversified portfolio approach when investing in cryptocurrencies.
+
+## Conclusion
+Through an hourly analysis of Bitcoin and Ethereum price movements, this study has provided valuable insights into the short-term dynamics of these two prominent cryptocurrencies. Key findings include the distinct hourly trends exhibited by Bitcoin and Ethereum over the past 365 days, with Ethereum showing greater stability compared to Bitcoin. Statistical tests conducted on mean log returns and proportions of positive returns revealed some statistically significant hourly periods, indicating potential trading opportunities. However, caution is advised, and traders should consider multiple factors before making decisions solely based on hourly analysis. Additionally, the use of rolling window analysis highlighted the temporal evolution of cryptocurrency price movements, offering insights into changing trends and patterns.
+
+## Appendix
+
+For brevity, most of the analysis regarding the mean log returns for ethereum and bitcoin as well rolling means of log returns. The excel sheet is titled Data Appendix and contains four sheets, each representing one of the analysis.
+
+```{r, include=FALSE}
+
+# #Save output to xlsx
+# 
+# if (!require(openxlsx)) install.packages("openxlsx")
+# library(openxlsx)
+# 
+# # Create a new workbook
+# wb <- createWorkbook()
+# 
+# # Add sheets to the workbook
+# addWorksheet(wb, "mean log returns etheruem")
+# addWorksheet(wb, "mean log returns bitcoin")
+# addWorksheet(wb, "r_mean log returns etheruem")
+# addWorksheet(wb, "r_mean log returns bitcoin")
+# 
+# 
+# writeData(wb, sheet = "mean log returns etheruem", test_results_eth)
+# writeData(wb, sheet = "mean log returns bitcoin", test_results_bit)
+# writeData(wb, sheet = "r_mean log returns etheruem", roll_test_results_eth)
+# writeData(wb, sheet = "r_mean log returns bitcoin", roll_test_results_bit)
+# 
+# saveWorkbook(wb, "Data appendix.xlsx", overwrite = TRUE)
+
+```
+
+
+
+
+
+
+
