@@ -1,25 +1,31 @@
-# 📊 Ghana Inflation Analysis & Forecasting (2020-2024)
+# 📈 Trading Opportunities in Cryptocurrency Markets: An Hourly Analysis of Bitcoin and Ethereum
 
-## 📈 Project Overview
-A comprehensive analysis of Ghana's inflation dynamics using ARIMA and SARIMA time series models in R. This project demonstrates advanced econometric modeling skills applied to real-world macroeconomic forecasting.
+## 🎯 Project Overview
+A comprehensive quantitative analysis of hourly price movements in Bitcoin and Ethereum markets to identify statistically significant trading opportunities. This project employs advanced time series econometrics, rolling window analysis, and hypothesis testing to uncover intraday patterns in cryptocurrency returns.
 
-## 🎯 Research Objectives
-1. Forecast 12-month inflation rates for Ghana
-2. Compare ARIMA and SARIMA model performance
-3. Identify seasonal patterns in inflation data
-4. Provide data-driven policy insights
+## 📊 Research Objectives
+1. **Hourly Trend Analysis:** Identify statistically significant patterns in cryptocurrency returns by hour-of-week
+2. **Rolling Window Analysis:** Examine long-term trends using 1-year rolling windows (8,760 hours)
+3. **Statistical Validation:** Apply hypothesis testing to distinguish meaningful patterns from random noise
+4. **Trading Strategy Insights:** Provide data-driven recommendations for intraday cryptocurrency trading
 
-## 📊 Data & Methodology
-- **Data Source:** Ghana Statistical Service (simulated for portfolio)
-- **Period:** January 2020 - December 2024
-- **Tools:** R, forecast package, ggplot2, tidyverse
-- **Models:** ARIMA, SARIMA with seasonal decomposition
+## 🔬 Methodology
 
-## 🛠️ Technical Implementation
+### **1. Data Processing Pipeline**
+- **Data Sources:** 
+  - Ethereum: `ETH_1H.csv` (May 2016 - April 2020)
+  - Bitcoin: `coinbaseUSD_1-min_data.csv` (December 2014 - May 2023)
+- **Data Wrangling:**
+  - Bitcoin minute data aggregated to hourly frequency
+  - Log-returns calculation: `log(P_t/P_{t-1})`
+  - Hour-of-week indexing for cyclical analysis
 
-### Key R Packages
+### **2. Statistical Framework**
 ```r
-library(forecast)    # Time series forecasting
-library(ggplot2)     # Data visualization
-library(tidyverse)   # Data manipulation
-library(tseries)     # Statistical tests
+# Core Analytical Techniques
+1. Descriptive Statistics & Time Series Visualization
+2. Log-Return Computation & Volatility Analysis
+3. Rolling Mean Analysis (8,760-hour windows)
+4. One-Sample T-Tests: H₀: μ = 0 vs H₁: μ > 0
+5. Binomial Tests: H₀: p = 0.5 vs H₁: p > 0.5
+6. Multiple Hypothesis Testing with 5% and 10% significance levels
