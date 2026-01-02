@@ -24,7 +24,7 @@ Welcome to my professional portfolio. I leverage data analysis and economic mode
 *This experimetrics analysis employs Maximum Likelihood Estimation of Fehr-Schmidt fairness models to reveal that males exhibit significantly stronger aversion to disadvantageous inequality (α=2.94 vs 1.68) in Ultimatum Game bargaining, with negative reciprocity motivations outperforming pure fairness concerns in explaining proposer behavior.*
 - **Tools:** R
 - **Key Insights:** 
-- [View Project](Experimetrics.README.md) | [View Code](./projects/labor-dashboard)
+- [View Project](Experimetrics.README.md) | [View Code](Experimetrics.Rscript)
 
 *(More projects coming soon!)*
 
