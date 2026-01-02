@@ -15,7 +15,7 @@ Welcome to my professional portfolio. I leverage data analysis and economic mode
 
 ## 🗂️ Featured Projects
 
-### 1. Inflation Forecasting Model
+### 1. Trade Analysis
 *Using Bayesian VAR to forecast CPI trends*
 - **Tools:** R, `bvartools`, `tidyverse`
 - **Key Insight:** Model achieved 94% accuracy on 12-month forecast
